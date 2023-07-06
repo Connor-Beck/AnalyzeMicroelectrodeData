@@ -29,6 +29,22 @@
 %       must go after an event before the next event can be detected.
 %       Biological limits of neurons often require 3 ms delay.
 %
+%  OPTIONAL NAME VALUE PAIR ARGUMENTS
+%   The base SpikeDetection function can be used with these optional input
+%   arguements to fine tune the spike detection protocol
+
+%   The optional argument name/value pairs are:
+%
+%    NAME                   VALUE
+%
+%   ''Window Detection''    integer (Default no Window Detection)
+%                           -Recommended (20) in seconds
+%                           Input a value in seconds to adjust the standard
+%                           deviation window. The function slides along the
+%                           timeframe creating a smaller window of data
+%                           to compute the standard deviation for spike
+%                           detection, centered around the timepoint.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%      OUTPUTS       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   Invoking SpikeDetection() returns:
 %
@@ -62,7 +78,21 @@
 %                                             with the spike.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%      CODE       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [Parameters,Data] = SpikeDetection(Parameters,Data)
+function [Parameters,Data] = SpikeDetection(Parameters,Data,varargin)
+    
+    %Initialize parameters
+    Sliding_Window=false;
+
+    if nargin>2 && ~mod(nargin,2)
+        for i=1:2:length(varargin)
+            if strcmp(varargin{i},'Window Detection')
+                Sliding_Window=true;
+                Window=varargin{i+1}*Parameters.samplingFrequency;
+            end
+        end
+    else
+        error('incorrect number of inputs into Spike Detection')
+    end
     if ~isfield(Parameters,'standard_deviation') || isempty(Parameters.standard_deviation)
         Parameters.standard_deviation=7;
     end
@@ -72,19 +102,42 @@ function [Parameters,Data] = SpikeDetection(Parameters,Data)
 
     Data.SpikeOutput=[];
     H = waitbar(0,'Detecting Electrode Spikes...'); 
+
+     
     for i=1:Parameters.n_electrodes
-        if ~strcmp(Parameters.ElectrodeLabel{i},'ref')
+        if ~strcmp(Parameters.ElectrodeLabel{i},'Ref') && ~any(ismember(Parameters.ElectrodeLabel{i},Parameters.electrode_removal))
             waitbar(i/Parameters.n_electrodes)
             %Select an individual electrode for analysis
             Electrode = Data.Electrodes(i).FilteredElectrode;
-    
-            % Calculate standard deviation of electrode
-            electrodeDeviation = std(Electrode);
-            Parameters.threshold(i) = (-1) * Parameters.standard_deviation * electrodeDeviation; %Calculate threshold voltage
-            
-            %find times where the electrode went below the threshold
-            SpikeTimes=find(Electrode <=Parameters.threshold(i));
-    
+            size(Electrode)
+            Parameters.ElectrodeLabel{i}
+            if ~Sliding_Window
+%%%%%%%%%%%%%%%%%%%%%% Standard detection code %%%%%%%%%%%%%%%%%%%%%%%%%%%%                    
+                % Calculate standard deviation of electrode
+                electrodeDeviation = std(Electrode);
+                Parameters.threshold(i) = (-1) * Parameters.standard_deviation * electrodeDeviation; %Calculate threshold voltage
+                
+                %find times where the electrode went below the threshold
+                SpikeTimes=find(Electrode <=Parameters.threshold(i));
+            else
+%%%%%%%%%%%%%%%%%%% Sliding deviation detection code %%%%%%%%%%%%%%%%%%%%%%
+                electrodeDeviation = zeros(Parameters.t_max,1);
+                startDev=std(Electrode(1:Window));
+                endDev=std(Electrode(end-Window:end));
+                for j=1:Parameters.t_max
+                    if i>round(Window/2) && i<Parameters.t_max-round(Window/2)
+                        electrodeDeviation(j)=std(Electrode(i-round(Window/2):i+round(Window/2)));
+                    elseif i<=round(Window/2)
+                        electrodeDeviation(j)=startDev;
+                    else
+                        electrodeDeviation(j)=endDev;
+                    end
+                end
+                Parameters.threshold(i)=mean(electrodeDeviation);
+                %find times where the electrode went below the threshold
+                SpikeTimes=find(Electrode <=((-1) * Parameters.standard_deviation) .*electrodeDeviation);
+            end
+%%%%%%%%%%%%%%%%%%%% Refractory period spike removal %%%%%%%%%%%%%%%%%%%%%%                
             % Comb through spike times, remove events that occured within
             % refractory period
             for j = 2:length(SpikeTimes)
@@ -92,14 +145,18 @@ function [Parameters,Data] = SpikeDetection(Parameters,Data)
                     SpikeTimes(j)=[];
                 end
             end
-            
+            %Insert Spike Times into the electrodes object as Spikes.
             Data.Electrodes(i).Spikes=SpikeTimes;
+
+            %Create an (x,y) [=] (Cell ID, Spike Time) array for plotting
             Spikes=cat(2,SpikeTimes,i*ones(length(SpikeTimes),1));
             if ~isempty(Spikes)
                 Data.SpikeOutput=cat(1,Data.SpikeOutput,Spikes);
             end
         else
+            %No spikes on reference electrode
             Data.Electrodes(i).Spikes=[];
         end
+    end
     delete(H)
 end

@@ -64,18 +64,33 @@
 %                                                        removed.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%      CODE       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [Parameters,Data]=RemoveElectrodes(Parameters,Data,electrode_removal)
-    if iscell(electrode_removal)
-        Parameters.removed_electrodes=electrode_removal;
-        for i=1:length(electrode_removal)
-            if any(strcmp(Parameters.ElectrodeLabel,Parameters.removed_electrodes{i}))
-                ID=find(strcmp(Parameters.ElectrodeLabel,Parameters.removed_electrodes{i}));
+function [Parameters,Data]=RemoveElectrodes(Parameters,Data)
+    if ~isfield(Parameters,'electrode_removal')
+        Parameters.electrode_removal={};
+    end
+
+    %create a list of all possible electrode IDs
+    count=1;
+    E_ID=cell(60,1);
+    for i=1:8
+        for j=1:8
+            if (i==1 && j==1) || (i==1 && j==8) || (i==8 && j==1) || (i==8 && j==8) || (i==1 && j==5)
+            else
+                E_ID{count}=strcat(num2str(j),num2str(i));
+            end
+            count=count+1;
+        end
+    end
+    E_ID{count}='Ref';
+    if ~isempty(Parameters.electrode_removal)
+        for i=1:length(Parameters.electrode_removal)
+            if any(strcmp(Parameters.ElectrodeLabel,Parameters.electrode_removal{i}))
+                ID=find(strcmp(Parameters.ElectrodeLabel,Parameters.electrode_removal{i}));
                 % Remove electrode from Label, 
-                Parameters.ElectrodeLabel{ID}=[];
                 Data.Electrodes(ID).RawElectrode=[];
                 Data.Electrodes(ID).FilteredElectrode=[];
             else
-                error(['Incorrect Electrode ID:',Parameters.removed_electrodes{i}])
+                error(['Incorrect Electrode ID:',Parameters.electrode_removal{i}])
             end
         end
     else
