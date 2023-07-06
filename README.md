@@ -4,6 +4,8 @@ Code written and maintained by Connor Beck
     
 A MATLAB software package for analyzing microelectrode data from multichannel systems
 
+To run this code download all files (inlcuding the 'Scripts' folder) and run the 'AnalyzeMicroelectrodeData.m' file as a tutorial.
+
 This code is a linear approach to microelectrode analysis. 
 
   (1) - load_MEA()          : '.h5' files from Multichannel Systems software are input into MATLAB
@@ -14,5 +16,3 @@ This code is a linear approach to microelectrode analysis.
   
   (4) - SpikeDetection()    : Signals are processed with falling edge detection.
 
-Work to be done:
-Time dynamic standard deviation detection for spike detection.
