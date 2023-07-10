@@ -136,7 +136,7 @@ function [Parameters,Data] = load_MEA(varargin)
     ADzero = double(InfoChannel.ADZero);  %ADC-Step that represents the 0-point of the measuring range of the ADC
     ConversionFactor = double(InfoChannel.ConversionFactor); %Conversion factor for the mapping ADC-Step to Measured Value 
     Exponent= double(InfoChannel.Exponent); %Exponent n for the 1En responsible for which the channel values magnitue is measured (e.g. kilo,micro,milli)
-    for i = 1:60
+    for i = 1:Parameters.n_electrodes
         Electrode=(double(ChannelData(:,i))-ADzero(i))*ConversionFactor(i)*10^Exponent(i);
         Data.Electrodes(i).RawElectrode = Electrode; %Insert Electrode into Data Array
         waitbar(i/60)
